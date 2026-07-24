@@ -129,12 +129,27 @@ def test_opening_book_loads():
     assert openings.lookup(board.epd()) is not None
 
 
-def test_book_moves_are_tagged_and_form_a_prefix(game_record):
+def test_book_moves_are_tagged(game_record):
     _, moves = parse.parse_game(game_record, "MyName")
-    flags = [m["book"] for m in moves]
-    assert flags[0] == 1, "1. e4 must be in the book"
-    assert flags == sorted(flags, reverse=True), "book moves must be a prefix"
+    assert moves[0]["book"] == 1, "1. e4 must be in the book"
     assert moves[0]["book_eco"] and moves[0]["book_name"]
+
+
+def test_transposing_back_into_book_is_tagged_not_rejected():
+    """Book is a per-position property, not a prefix -- real games transpose.
+
+    1.d4 d5 2.c4 Nf6 3.g3 dxc4 4.Bg2 e6 leaves the named lines and re-enters
+    the Catalan. Observed in real data (game tR3sRemz); an earlier version of
+    the gate wrongly failed it.
+    """
+    record = make_game(moves="d4 d5 c4 Nf6 g3 dxc4 Bg2 e6 Nf3 Qd5", status="resign",
+                       division={"middle": 8}, clocks=[])
+    _, moves = parse.parse_game(record, "MyName")
+    flags = [m["book"] for m in moves]
+    assert flags[:4] == [1, 1, 1, 1]
+    assert flags[4:7] == [0, 0, 0], "leaves known theory"
+    assert flags[7] == 1, "transposes back into the Catalan"
+    assert moves[7]["book_name"] and "Catalan" in moves[7]["book_name"]
 
 
 def test_leaving_the_book_is_detectable(game_record):

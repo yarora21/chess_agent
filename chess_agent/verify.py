@@ -123,19 +123,14 @@ def verify_game(game: sqlite3.Row, moves: list[sqlite3.Row]) -> list[str]:
             break
         last = rank
 
-    # 5. Book tags: book moves must form a prefix — you cannot re-enter the book
-    #    after leaving it, because the tag is about how deep the game stayed on
-    #    known theory. A transposition back into a named line would break this;
-    #    if that shows up in real data, it is a finding, not a crash.
-    seen_out_of_book = False
-    for m in moves:
-        if m["book"]:
-            if seen_out_of_book:
-                problems.append(f"{gid} ply {m['ply']}: book move after leaving book "
-                                f"(transposition into {m['book_name']!r})")
-                break
-        else:
-            seen_out_of_book = True
+    # 5. Book tags are NOT a prefix, and must not be checked as one. Real games
+    #    transpose: 1.d4 d5 2.c4 Nf6 3.g3 dxc4 4.Bg2 e6 leaves the named lines
+    #    at ply 4 and re-enters the Catalan at ply 7. So `book` is a per-position
+    #    property, and the metrics layer must distinguish two different things:
+    #      * first_out_of_book_ply -- how deep prepared theory went (prefix length)
+    #      * SUM(book)             -- how many moves sat in known theory overall
+    #    Using the second where the first is meant would overstate book depth on
+    #    every transposition. Counted below as a store-wide statistic.
 
     # 6. Clocks, when present, must be complete and monotonically decreasing per side.
     if game["has_clocks"]:
@@ -184,7 +179,20 @@ def verify_store(conn: sqlite3.Connection, limit: int | None = None) -> VerifyRe
     book_depth = conn.execute(
         "SELECT AVG(d) FROM (SELECT SUM(book) d FROM moves GROUP BY game_id)"
     ).fetchone()[0]
-    report.stats["mean_book_depth_plies"] = round(book_depth, 1) if book_depth else 0
+    report.stats["mean_book_moves_per_game"] = round(book_depth, 1) if book_depth else 0
+
+    # Prepared-theory depth: the prefix length, which is what "book depth" means.
+    # Differs from the count above exactly on transpositions.
+    first_out = conn.execute(
+        "SELECT AVG(f) FROM (SELECT MIN(ply) f FROM moves WHERE book = 0 GROUP BY game_id)"
+    ).fetchone()[0]
+    report.stats["mean_first_out_of_book_ply"] = round(first_out, 1) if first_out else 0
+
+    transposed = conn.execute(
+        "SELECT COUNT(*) FROM (SELECT game_id FROM moves GROUP BY game_id "
+        " HAVING SUM(book) > MIN(CASE WHEN book = 0 THEN ply END))"
+    ).fetchone()[0]
+    report.stats["games_that_transpose_back_into_book"] = transposed
 
     # `division` convention probe. We read division.middle/end as ply COUNTS, so
     # move index i is middlegame once i >= middle. If they were instead 0-based
