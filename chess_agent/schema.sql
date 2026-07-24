@@ -234,6 +234,30 @@ CREATE TABLE IF NOT EXISTS game_metrics (
     PRIMARY KEY (game_id, engine_id)
 );
 
+
+-- ---------------------------------------------------------------------------
+-- maia_moves: what a human of a given rating would most likely have played.
+-- One row per (player move, rating net). `matched` is the metric: did the
+-- player play what that rating band plays?
+--
+-- This is the opponent-independent signal. Blunder rates rise as opponents get
+-- stronger even when the player improves; "do I now play like a 1500" does not
+-- depend on who was across the board.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS maia_moves (
+    game_id        TEXT NOT NULL,
+    ply            INTEGER NOT NULL,
+    rating         INTEGER NOT NULL,       -- which Maia net: 1100..1600
+    predicted_uci  TEXT NOT NULL,
+    matched        INTEGER NOT NULL,       -- 1 if the player played this move
+    weights_sha    TEXT,                   -- provenance of the net used
+    computed_at    TEXT NOT NULL,
+    PRIMARY KEY (game_id, ply, rating),
+    FOREIGN KEY (game_id, ply) REFERENCES moves(game_id, ply) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_maia_rating ON maia_moves (rating, matched);
+
 -- ---------------------------------------------------------------------------
 -- MIGRATIONS
 -- ---------------------------------------------------------------------------
@@ -249,3 +273,5 @@ CREATE TABLE IF NOT EXISTS game_metrics (
 --       ALTER TABLE engine_configs ADD COLUMN initial_cp INTEGER;
 -- v3 (phase 3): game_metrics added. Derived table -- no migration of existing
 --     data needed, it is recomputed from moves + evals by `chess-agent metrics`.
+-- v4 (phase 4): maia_moves added. Populated by `chess-agent maia`; derived
+--     data, recomputable, so the migration is a version bump only.

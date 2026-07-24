@@ -158,6 +158,35 @@ def cmd_metrics(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_maia(args: argparse.Namespace) -> int:
+    from . import maia
+
+    conn = store.connect(args.db)
+    store.init_db(conn)
+    ratings = args.ratings or list(config.MAIA.compare)
+
+    def progress(done: int, total: int, elapsed: float) -> None:
+        rate = done / elapsed if elapsed else 0
+        eta = (total - done) / rate / 60 if rate else 0
+        print(f"  {done}/{total} games  {elapsed/60:.1f} min elapsed  ~{eta:.1f} min left",
+              end="\r", flush=True)
+
+    result = maia.run(conn, ratings=ratings, on_progress=progress)
+    if result["games"]:
+        print(f"\n\n{result['predictions']:,} predictions over {result['games']} games "
+              f"in {result['elapsed_s']/60:.1f} min")
+    else:
+        print("nothing to do -- every cohort game already has predictions")
+    print()
+    print(maia.render(maia.match_rates(conn, window=args.window), window=args.window))
+    if len(ratings) >= 2:
+        print()
+        print(maia.render_discriminating(
+            maia.discriminating_rates(conn, min(ratings), max(ratings), args.window),
+            window=args.window))
+    return 0
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     conn = store.connect(args.db)
     meta = store.get_meta(conn)
@@ -206,6 +235,12 @@ def main(argv: list[str] | None = None) -> int:
     p_met.add_argument("--window", type=int, default=100,
                        help="games in the first/last comparison windows (default 100)")
     p_met.set_defaults(func=cmd_metrics)
+
+    p_maia = subparsers.add_parser("maia", help="Maia move-matching by rating band")
+    p_maia.add_argument("--ratings", type=int, nargs="+",
+                        help="which nets (default: 1200 1500)")
+    p_maia.add_argument("--window", type=int, default=100)
+    p_maia.set_defaults(func=cmd_maia)
 
     p_val = subparsers.add_parser("validate", help="phase-2 gate: agree with Lichess?")
     p_val.add_argument("--engine-id", help="defaults to the most recent local config")

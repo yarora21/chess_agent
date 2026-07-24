@@ -62,6 +62,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # migrate -- `chess-agent metrics` recomputes it from moves + evals.
         version = 3
 
+    if version < 4:
+        # maia_moves is created by the schema script above; derived data, so
+        # nothing to migrate -- `chess-agent maia` repopulates it.
+        version = 4
+
     if version != (row["schema_version"] if row else version):
         conn.execute("UPDATE meta SET schema_version = ? WHERE id = 1", (version,))
     conn.commit()

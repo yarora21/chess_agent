@@ -156,3 +156,58 @@ def test_descriptive_records_carry_their_sample_size():
         "sample size must travel with every number -- the MVP has no significance "
         "test, so the denominator is the only guard against over-reading"
     )
+
+
+# ---------------------------------------------------------------------------
+# Maia
+# ---------------------------------------------------------------------------
+
+def test_maia_match_is_scored_against_the_move_actually_played(conn):
+    from chess_agent import maia, parse, store
+    from conftest import make_game
+
+    game, moves = parse.parse_game(make_game("mg1"), "MyName")
+    store.upsert_game(conn, game, moves)
+    store.reindex_games(conn)
+    played = [m for m in moves if m["is_player"]]
+
+    rows = [("mg1", played[0]["ply"], 1200, played[0]["uci"], 1, "sha", "now"),
+            ("mg1", played[1]["ply"], 1200, "a1a2", 0, "sha", "now")]
+    conn.executemany(
+        "INSERT INTO maia_moves (game_id, ply, rating, predicted_uci, matched, "
+        "weights_sha, computed_at) VALUES (?,?,?,?,?,?,?)", rows)
+    conn.commit()
+
+    rates = maia.match_rates(conn, window=10)
+    assert len(rates) == 1
+    assert rates[0]["rating"] == 1200
+    assert rates[0]["overall"] == 50.0 and rates[0]["total_n"] == 2
+
+
+def test_discriminating_rates_ignore_positions_where_the_nets_agree(conn):
+    """Agreed positions are obvious moves -- they carry no signal about level."""
+    from chess_agent import maia, parse, store
+    from conftest import make_game
+
+    game, moves = parse.parse_game(make_game("mg2"), "MyName")
+    store.upsert_game(conn, game, moves)
+    store.reindex_games(conn)
+    p = [m for m in moves if m["is_player"]]
+
+    rows = [
+        # ply A: both nets predict the played move -> agreement, must be ignored
+        ("mg2", p[0]["ply"], 1200, p[0]["uci"], 1, "s", "now"),
+        ("mg2", p[0]["ply"], 1500, p[0]["uci"], 1, "s", "now"),
+        # ply B: nets differ, player played the 1500 move
+        ("mg2", p[1]["ply"], 1200, "a1a2", 0, "s", "now"),
+        ("mg2", p[1]["ply"], 1500, p[1]["uci"], 1, "s", "now"),
+    ]
+    conn.executemany(
+        "INSERT INTO maia_moves (game_id, ply, rating, predicted_uci, matched, "
+        "weights_sha, computed_at) VALUES (?,?,?,?,?,?,?)", rows)
+    conn.commit()
+
+    d = maia.discriminating_rates(conn, 1200, 1500, window=10)
+    assert d["overall"]["disagreements"] == 1, "the agreed position must be excluded"
+    assert d["overall"]["played_high"] == 1 and d["overall"]["played_low"] == 0
+    assert d["overall"]["high_share"] == 100.0
