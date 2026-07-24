@@ -3,7 +3,7 @@
 <img width="1440" height="580" alt="image" src="https://github.com/user-attachments/assets/7dec4293-8e1d-4899-ba95-d42ce403c974" />
 
 
-Analyzes a Lichess **rapid** history and reports where the play changed as the rating moved — per phase, per skill dimension — then answers follow-up questions about it.
+The goal of this project to see where exactly my play improved as I climbed the rating ladder from about 1150 to 1450.
 
 The point of the project is not the chess analysis. It is the discipline around a language model: **the LLM never judges chess.** Every blunder, phase boundary, and rate comes from a deterministic Stockfish/Maia/stats layer. The model is a narrator over a table of verified numbers, and a harness rejects its output if it invents one.
 
