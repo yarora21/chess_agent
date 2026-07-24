@@ -98,13 +98,19 @@ class MaiaSettings:
     """Phase 4 settings: Lc0 + original Maia weights, policy net at nodes=1 (no search)."""
 
     lc0_binary: str = os.environ.get("LC0_PATH", "lc0")
+    # Absolute paths: lc0 resolves --weights against ITS cwd, and the backfill
+    # runs engines from worker processes whose cwd you should not rely on.
     weights: dict[int, str] = field(
         default_factory=lambda: {
-            1200: os.environ.get("MAIA_1200_WEIGHTS", "weights/maia-1200.pb.gz"),
-            1500: os.environ.get("MAIA_1500_WEIGHTS", "weights/maia-1500.pb.gz"),
+            rating: str(REPO_ROOT / "weights" / f"maia-{rating}.pb.gz")
+            for rating in (1100, 1200, 1300, 1400, 1500, 1600)
         }
     )
+    # nodes=1 queries the policy head directly with no search -- we want "what
+    # would a human at this rating play", not "what is best".
     nodes: int = 1
+    # The two nets the report contrasts. Others are downloaded and available.
+    compare: tuple[int, int] = (1200, 1500)
 
 
 STOCKFISH = StockfishSettings()
