@@ -5,8 +5,6 @@
 
 The goal of this project to see where exactly my play improved as I climbed the rating ladder from about 1150 to 1450.
 
-The point of the project is not the chess analysis. It is the discipline around a language model: **the LLM never judges chess.** Every blunder, phase boundary, and rate comes from a deterministic Stockfish/Maia/stats layer. The model is a narrator over a table of verified numbers, and a harness rejects its output if it invents one.
-
 Run against the author's history: **724 games, 46,143 engine-evaluated positions, 46,410 Maia predictions.**
 
 ---
