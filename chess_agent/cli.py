@@ -187,6 +187,25 @@ def cmd_maia(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_narrate(args: argparse.Namespace) -> int:
+    from . import narrate
+
+    conn = store.connect(args.db)
+    records = narrate.build_records(conn, window=args.window)
+    if args.records_only:
+        for record in records:
+            print(record.render())
+        return 0
+
+    print(f"narrating from {len(records)} verified records...\n")
+    text = narrate.narrate(records)
+    report = narrate.check(text, records)
+    print(text)
+    print("\n" + "=" * 70)
+    print(report.render())
+    return 0 if report.ok else 1
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     conn = store.connect(args.db)
     meta = store.get_meta(conn)
@@ -245,6 +264,12 @@ def main(argv: list[str] | None = None) -> int:
     p_val = subparsers.add_parser("validate", help="phase-2 gate: agree with Lichess?")
     p_val.add_argument("--engine-id", help="defaults to the most recent local config")
     p_val.set_defaults(func=cmd_validate)
+
+    p_nar = subparsers.add_parser("narrate", help="LLM report over verified records")
+    p_nar.add_argument("--window", type=int, default=100)
+    p_nar.add_argument("--records-only", action="store_true",
+                       help="print the records without calling the model")
+    p_nar.set_defaults(func=cmd_narrate)
 
     subparsers.add_parser("summary", help="what is in the store").set_defaults(func=cmd_summary)
 
