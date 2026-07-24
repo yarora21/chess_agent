@@ -41,7 +41,24 @@ def init_db(conn: sqlite3.Connection) -> None:
         (config.SCHEMA_VERSION, config.PERF_TYPE),
     )
     conn.commit()
+    _migrate(conn)
     _check_schema_version(conn)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring an older store up to the current schema. Each step is idempotent."""
+    row = conn.execute("SELECT schema_version FROM meta WHERE id = 1").fetchone()
+    version = row["schema_version"] if row else config.SCHEMA_VERSION
+
+    if version < 2:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(engine_configs)")}
+        if "initial_cp" not in cols:
+            conn.execute("ALTER TABLE engine_configs ADD COLUMN initial_cp INTEGER")
+        version = 2
+
+    if version != (row["schema_version"] if row else version):
+        conn.execute("UPDATE meta SET schema_version = ? WHERE id = 1", (version,))
+    conn.commit()
 
 
 def _check_schema_version(conn: sqlite3.Connection) -> None:

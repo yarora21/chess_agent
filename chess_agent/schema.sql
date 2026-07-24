@@ -137,6 +137,11 @@ CREATE TABLE IF NOT EXISTS engine_configs (
     movetime_ms    INTEGER,
     threads        INTEGER,
     extra_json     TEXT,                   -- any further UCI options, canonical JSON
+    -- Eval of the standard starting position under this config, White POV cp.
+    -- Needed because `evals` rows hold the eval AFTER a ply, so ply 0's "before"
+    -- position has no row of its own. It is identical for every game, so it is
+    -- stored once per config rather than as a magic constant in the metrics code.
+    initial_cp     INTEGER,
     created_at     TEXT NOT NULL
 );
 
@@ -194,3 +199,10 @@ CREATE TABLE IF NOT EXISTS evals_scratch (
 -- v1 (phase 1): initial schema — meta, games, moves, engine_configs, evals,
 --     evals_scratch. Created for the ingest + storage phase; the evals tables
 --     are defined but left empty until phase 2.
+-- v2 (phase 2): engine_configs.initial_cp added. `evals` rows hold the eval of
+--     the position AFTER a ply (matching the alignment of the Lichess analysis
+--     array, verified: n_plies - len(analysis) is 1 for mate games and 0 for
+--     every other status, across all 307 analysed games). That leaves ply 0
+--     without a "before" eval, which initial_cp supplies.
+--     Applied to an existing v1 store with:
+--       ALTER TABLE engine_configs ADD COLUMN initial_cp INTEGER;

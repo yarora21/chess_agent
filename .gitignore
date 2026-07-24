@@ -3,8 +3,9 @@ data/*.sqlite
 data/*.sqlite-wal
 data/*.sqlite-shm
 
-# Engine weights are large binaries, not source.
+# Engine binaries and weights are large, platform-specific, and not source.
 weights/
+bin/
 
 # Never commit the API token.
 .env

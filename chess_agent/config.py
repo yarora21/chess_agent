@@ -20,7 +20,7 @@ DB_PATH = DATA_DIR / "chess_agent.sqlite"
 OPENINGS_DIR = DATA_DIR / "openings"
 SCHEMA_PATH = PACKAGE_ROOT / "schema.sql"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Rapid only. Bullet/blitz/rapid have wildly different blunder profiles and
 # rating histories; aggregating across them is a correctness bug, not a setting.
@@ -62,9 +62,29 @@ class StockfishSettings:
     never one engine with many threads (Lazy SMP time-to-depth scales poorly).
     """
 
-    binary: str = os.environ.get("STOCKFISH_PATH", "stockfish")
-    movetime_ms: int | None = 100
-    depth: int | None = None  # set one of movetime_ms / depth, not both
+    binary: str = os.environ.get("STOCKFISH_PATH") or (
+        str(REPO_ROOT / "bin" / "stockfish")
+        if (REPO_ROOT / "bin" / "stockfish").exists()
+        else "stockfish"
+    )
+    # Set exactly one of movetime_ms / depth.
+    #
+    # FIXED DEPTH, not fixed movetime -- a correctness choice, not a speed one.
+    # Fixed movetime makes eval quality a function of how busy the machine is.
+    # Games are handed to the pool in game_index order, so a slow patch (another
+    # program hogging cores) degrades a *contiguous run of game indexes*, which
+    # is indistinguishable from a real trend in play quality. That is exactly the
+    # artifact principle 3 exists to prevent, arriving through machine load.
+    # Fixed depth is reproducible: same engine, same position, same answer,
+    # whatever else the laptop is doing.
+    #
+    # Benchmarked on this machine (8 cores, Stockfish 18, 6-game sample):
+    #   depth 12       5.4 min full run     depth 14      12.9 min
+    #   depth 16      32.8 min              movetime 100ms 25.5 min
+    # Depth 14 sits in the 12-14 band the research doc calls sufficient at the
+    # 1200-1500 level, where the errors that matter are 200+ cp.
+    movetime_ms: int | None = None
+    depth: int | None = 14
     threads: int = 1
     hash_mb: int = 64
     # Optionally stop analyzing once eval passes this magnitude; capped ACPL
