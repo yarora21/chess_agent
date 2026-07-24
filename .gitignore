@@ -10,8 +10,7 @@ bin/
 # Never commit the API token.
 .env
 
-# Working notes and design docs — kept local.
-docs/
+# Agent working notes — kept local. Design docs live in docs/ and are tracked.
 CLAUDE.md
 CLAUDE_REVIEW.md
 
