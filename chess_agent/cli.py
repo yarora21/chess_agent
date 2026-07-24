@@ -146,6 +146,18 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0 if report.passed else 1
 
 
+def cmd_metrics(args: argparse.Namespace) -> int:
+    from . import metrics
+
+    conn = store.connect(args.db)
+    store.init_db(conn)
+    result = metrics.compute_all(conn)
+    print(f"computed metrics for {result['games']} games "
+          f"(engine {result['engine_id']})\n")
+    print(metrics.render(metrics.describe(conn, window=args.window), window=args.window))
+    return 0
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     conn = store.connect(args.db)
     meta = store.get_meta(conn)
@@ -189,6 +201,11 @@ def main(argv: list[str] | None = None) -> int:
     p_verify = subparsers.add_parser("verify", help="run the phase-1 reconstruction gate")
     p_verify.add_argument("--limit", type=int, help="check only the first N games")
     p_verify.set_defaults(func=cmd_verify)
+
+    p_met = subparsers.add_parser("metrics", help="compute per-game metrics and summarise")
+    p_met.add_argument("--window", type=int, default=100,
+                       help="games in the first/last comparison windows (default 100)")
+    p_met.set_defaults(func=cmd_metrics)
 
     p_val = subparsers.add_parser("validate", help="phase-2 gate: agree with Lichess?")
     p_val.add_argument("--engine-id", help="defaults to the most recent local config")

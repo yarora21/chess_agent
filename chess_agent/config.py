@@ -20,7 +20,7 @@ DB_PATH = DATA_DIR / "chess_agent.sqlite"
 OPENINGS_DIR = DATA_DIR / "openings"
 SCHEMA_PATH = PACKAGE_ROOT / "schema.sql"
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Rapid only. Bullet/blitz/rapid have wildly different blunder profiles and
 # rating histories; aggregating across them is a correctness bug, not a setting.

@@ -81,6 +81,72 @@ def classify(win_pct_lost_value: float) -> Judgment:
     return Judgment(name, win_pct_lost_value)
 
 
+@dataclass(frozen=True)
+class MoveEval:
+    """Everything the metrics layer needs about one move, derived from two evals."""
+
+    ply: int
+    mover_is_white: bool
+    win_pct_before: float
+    win_pct_after: float
+    judgment: Judgment
+    cp_loss: float | None   # centipawn loss from the mover's POV; None if mate involved
+    decided: bool           # position was already decided before the move
+
+    @property
+    def is_blunder(self) -> bool:
+        return self.judgment.is_blunder
+
+
+def judge_game(rows: "list", initial_cp: int | None) -> dict[int, MoveEval]:
+    """Judge every ply of one game from its eval rows.
+
+    `rows` hold the eval of the position AFTER each ply, so the 'before' side of
+    ply i is row i-1 -- and for ply 0 it is the engine's eval of the starting
+    position, which is why engine_configs.initial_cp exists.
+
+    Shared by the metrics layer and the Lichess-agreement gate so the two can
+    never drift apart: if this is wrong, validate.py fails loudly.
+    """
+    by_ply = {r["ply"]: r for r in rows}
+    out: dict[int, MoveEval] = {}
+    for ply in sorted(by_ply):
+        row = by_ply[ply]
+        if ply == 0:
+            cp_before, mate_before = initial_cp, None
+        else:
+            prev = by_ply.get(ply - 1)
+            if prev is None:
+                continue
+            cp_before, mate_before = prev["cp"], prev["mate"]
+        if cp_before is None and mate_before is None:
+            continue
+
+        mover_is_white = (ply % 2 == 0)
+        before = win_pct(cp=cp_before, mate=mate_before)
+        after = win_pct(cp=row["cp"], mate=row["mate"])
+        judgment = classify(win_pct_lost(before, after, mover_is_white))
+
+        if cp_before is not None and row["cp"] is not None:
+            signed_before = cp_before if mover_is_white else -cp_before
+            signed_after = row["cp"] if mover_is_white else -row["cp"]
+            cp_loss = max(0.0, float(signed_before - signed_after))
+        else:
+            cp_loss = None  # a mate score is involved; ACPL is meaningless there
+
+        out[ply] = MoveEval(
+            ply=ply,
+            mover_is_white=mover_is_white,
+            win_pct_before=before,
+            win_pct_after=after,
+            judgment=judgment,
+            cp_loss=cp_loss,
+            decided=(cp_before is not None and abs(cp_before) > DECIDED_CP)
+                    or mate_before is not None,
+        )
+    return out
+
+
 def judge_move(
     *,
     cp_before: int | None,

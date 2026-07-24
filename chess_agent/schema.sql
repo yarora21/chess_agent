@@ -194,6 +194,47 @@ CREATE TABLE IF NOT EXISTS evals_scratch (
 );
 
 -- ---------------------------------------------------------------------------
+-- game_metrics: one row per (game, engine_config). Derived entirely from
+-- `moves` + `evals`; safe to DELETE and recompute at any time.
+--
+-- Counts are the analysed player's moves only -- never the opponent's. Every
+-- rate column has its denominator stored beside it, because the MVP ships
+-- without significance testing and a rate whose sample size is invisible is
+-- how a 30-move endgame finding gets read like a 700-game one.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS game_metrics (
+    game_id        TEXT NOT NULL REFERENCES games(game_id) ON DELETE CASCADE,
+    engine_id      TEXT NOT NULL REFERENCES engine_configs(engine_id),
+
+    moves          INTEGER NOT NULL,   -- player moves with a usable eval pair
+    blunders       INTEGER NOT NULL,
+    mistakes       INTEGER NOT NULL,
+    inaccuracies   INTEGER NOT NULL,
+    acpl           REAL,               -- capped, decided positions excluded
+    acpl_moves     INTEGER NOT NULL,   -- denominator behind acpl
+
+    opening_moves      INTEGER NOT NULL,
+    opening_blunders   INTEGER NOT NULL,
+    middlegame_moves   INTEGER NOT NULL,
+    middlegame_blunders INTEGER NOT NULL,
+    endgame_moves      INTEGER NOT NULL,
+    endgame_blunders   INTEGER NOT NULL,
+
+    time_trouble_moves    INTEGER NOT NULL,
+    time_trouble_blunders INTEGER NOT NULL,
+
+    first_out_of_book_ply INTEGER,
+
+    -- Conversion: did the player ever reach a clearly winning position, and did
+    -- they go on to win it? Both NULL-free so the rate is countable.
+    reached_winning INTEGER NOT NULL,
+    converted       INTEGER NOT NULL,
+
+    computed_at    TEXT NOT NULL,
+    PRIMARY KEY (game_id, engine_id)
+);
+
+-- ---------------------------------------------------------------------------
 -- MIGRATIONS
 -- ---------------------------------------------------------------------------
 -- v1 (phase 1): initial schema — meta, games, moves, engine_configs, evals,
@@ -206,3 +247,5 @@ CREATE TABLE IF NOT EXISTS evals_scratch (
 --     without a "before" eval, which initial_cp supplies.
 --     Applied to an existing v1 store with:
 --       ALTER TABLE engine_configs ADD COLUMN initial_cp INTEGER;
+-- v3 (phase 3): game_metrics added. Derived table -- no migration of existing
+--     data needed, it is recomputed from moves + evals by `chess-agent metrics`.

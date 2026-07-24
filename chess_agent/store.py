@@ -56,6 +56,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE engine_configs ADD COLUMN initial_cp INTEGER")
         version = 2
 
+    if version < 3:
+        # game_metrics is created by the schema script itself (CREATE TABLE IF
+        # NOT EXISTS ran just above); it is derived data, so there is nothing to
+        # migrate -- `chess-agent metrics` recomputes it from moves + evals.
+        version = 3
+
     if version != (row["schema_version"] if row else version):
         conn.execute("UPDATE meta SET schema_version = ? WHERE id = 1", (version,))
     conn.commit()
