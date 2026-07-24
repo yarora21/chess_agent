@@ -206,6 +206,13 @@ def cmd_narrate(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def cmd_ask(args: argparse.Namespace) -> int:
+    from . import ask
+
+    print(ask.ask(args.question, db_path=args.db, verbose=args.verbose))
+    return 0
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     conn = store.connect(args.db)
     meta = store.get_meta(conn)
@@ -270,6 +277,11 @@ def main(argv: list[str] | None = None) -> int:
     p_nar.add_argument("--records-only", action="store_true",
                        help="print the records without calling the model")
     p_nar.set_defaults(func=cmd_narrate)
+
+    p_ask = subparsers.add_parser("ask", help="ask a question about your games")
+    p_ask.add_argument("question", help="e.g. 'which games did I blunder most in?'")
+    p_ask.add_argument("--verbose", action="store_true", help="show tool calls")
+    p_ask.set_defaults(func=cmd_ask)
 
     subparsers.add_parser("summary", help="what is in the store").set_defaults(func=cmd_summary)
 

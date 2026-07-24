@@ -33,6 +33,20 @@ def connect(db_path: Path | str | None = None) -> sqlite3.Connection:
     return conn
 
 
+def connect_readonly(db_path: Path | str | None = None) -> sqlite3.Connection:
+    """A connection SQLite itself refuses writes on.
+
+    Used by the Q&A agent. The agent is instructed to only read, but an
+    instruction is not a control: an LLM with a writable handle to the store is
+    one prompt-injection away from mutating the evidence it is meant to be
+    citing. `mode=ro` makes any write attempt an OperationalError.
+    """
+    path = Path(db_path) if db_path is not None else config.DB_PATH
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=30.0)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     """Create the schema if absent. Idempotent."""
     conn.executescript(config.SCHEMA_PATH.read_text())
