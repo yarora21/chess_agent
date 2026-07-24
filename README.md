@@ -2,8 +2,8 @@
 
 <img width="1440" height="580" alt="image" src="https://github.com/user-attachments/assets/7dec4293-8e1d-4899-ba95-d42ce403c974" />
 
-
-The goal of this project to see where exactly my play improved as I climbed the rating ladder from about 1150 to 1450.
+a
+The goal of this project to see where exactly my play improved as I climbed the rating ladder from about 1150 to about 1450. There is a bunch of data that is ingested and transformed and an LLM call is made to make the output human readable.
 
 Run against the author's history: **724 games, 46,143 engine-evaluated positions, 46,410 Maia predictions.**
 
