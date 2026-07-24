@@ -300,3 +300,39 @@ def test_verify_catches_a_missing_reindex(conn):
     # deliberately skip reindex_games
     report = verify.verify_store(conn)
     assert not report.ok
+
+
+# ---------------------------------------------------------------------------
+# Analysis cohort
+# ---------------------------------------------------------------------------
+
+def test_cohort_excludes_games_outside_the_configured_range(conn, monkeypatch):
+    from chess_agent import config
+
+    for i in range(6):
+        game, moves = parse.parse_game(make_game(f"g{i}", created_at=1_000 * (i + 1)), "MyName")
+        store.upsert_game(conn, game, moves)
+    store.reindex_games(conn)
+
+    monkeypatch.setattr(config, "ANALYSIS_START_INDEX", 2)
+    monkeypatch.setattr(config, "ANALYSIS_END_INDEX", 4)
+
+    assert [g["game_id"] for g in store.analysis_games(conn)] == ["g2", "g3", "g4"]
+    assert store.cohort_summary(conn)["cohort_games"] == 3
+    assert store.cohort_summary(conn)["excluded_games"] == 3
+    assert {m["game_id"] for m in store.analysis_moves(conn)} == {"g2", "g3", "g4"}
+
+
+def test_cohort_moves_are_ordered_by_game_then_ply(conn, monkeypatch):
+    from chess_agent import config
+
+    for i in range(3):
+        game, moves = parse.parse_game(make_game(f"g{i}", created_at=1_000 * (i + 1)), "MyName")
+        store.upsert_game(conn, game, moves)
+    store.reindex_games(conn)
+    monkeypatch.setattr(config, "ANALYSIS_START_INDEX", 0)
+    monkeypatch.setattr(config, "ANALYSIS_END_INDEX", 99)
+
+    rows = store.analysis_moves(conn)
+    keys = [(r["game_id"], r["ply"]) for r in rows]
+    assert keys == sorted(keys)

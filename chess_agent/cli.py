@@ -73,6 +73,9 @@ def cmd_summary(args: argparse.Namespace) -> int:
     print(f"opening book: {(meta.get('openings_sha') or '?')[:8]}")
     for key, value in info.items():
         print(f"  {key}: {value}")
+    print("\nanalysis cohort (what metrics will actually see):")
+    for key, value in store.cohort_summary(conn).items():
+        print(f"  {key}: {value}")
     return 0
 
 

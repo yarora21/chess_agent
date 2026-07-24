@@ -26,6 +26,27 @@ SCHEMA_VERSION = 1
 # rating histories; aggregating across them is a correctness bug, not a setting.
 PERF_TYPE = "rapid"
 
+# ---------------------------------------------------------------------------
+# Analysis cohort: which stored games the metrics/claims stages are allowed to
+# see. Ingest keeps everything; analysis narrows.
+#
+# Games 0-1 are stale one-offs (2021-09 and 2023-02) sitting three years before
+# the real run, which begins 2026-01-26.
+# Games 2-43 are the provisional-rating settling period: Lichess started the
+# account at a guessed 1500 and corrected downward to ~1140 while actual
+# strength was roughly flat. Rating moves there reflect Lichess calibrating,
+# not the player changing.
+#
+# CAVEAT, deliberately on the record: index 44 is the rating trough, and
+# choosing a start point because the rating bottomed there selects on the
+# outcome -- it makes any subsequent climb look bigger than it was. The trend
+# fits regress on game index rather than rating, which blunts this, but any
+# narration that quotes the rating range inherits the bias. A defensible
+# alternative is to cut on Lichess's own provisional flag instead. Revisit
+# before phase 5 narration quotes a rating span.
+ANALYSIS_START_INDEX = 44
+ANALYSIS_END_INDEX = 767
+
 # Lichess API: one request at a time, and a full 60s wait on HTTP 429.
 # Rate limits are unpublished and dynamic.
 RATE_LIMIT_BACKOFF_S = 60

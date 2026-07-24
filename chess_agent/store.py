@@ -183,6 +183,50 @@ def iter_games(conn: sqlite3.Connection) -> Iterable[sqlite3.Row]:
     yield from conn.execute("SELECT * FROM games ORDER BY game_index")
 
 
+# The cohort filter. Metrics, claims and narration must go through these --
+# reading `games` directly would silently pull in the stale and provisional
+# games that config.ANALYSIS_* exists to exclude.
+COHORT_WHERE = "game_index BETWEEN ? AND ?"
+
+
+def cohort_bounds() -> tuple[int, int]:
+    return config.ANALYSIS_START_INDEX, config.ANALYSIS_END_INDEX
+
+
+def analysis_games(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute(
+        f"SELECT * FROM games WHERE {COHORT_WHERE} ORDER BY game_index", cohort_bounds()
+    ).fetchall()
+
+
+def analysis_moves(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute(
+        f"SELECT m.* FROM moves m JOIN games g USING (game_id) WHERE {COHORT_WHERE} "
+        "ORDER BY g.game_index, m.ply",
+        cohort_bounds(),
+    ).fetchall()
+
+
+def cohort_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    lo, hi = cohort_bounds()
+    row = conn.execute(
+        f"SELECT COUNT(*) n, MIN(player_rating) lo_r, MAX(player_rating) hi_r, "
+        f"SUM(n_plies) plies, SUM(has_lichess_analysis) analysed "
+        f"FROM games WHERE {COHORT_WHERE}",
+        (lo, hi),
+    ).fetchone()
+    excluded = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0] - row["n"]
+    return {
+        "cohort_range": f"{lo}-{hi}",
+        "cohort_games": row["n"],
+        "cohort_moves": row["plies"] or 0,
+        "excluded_games": excluded,
+        "rating_min": row["lo_r"],
+        "rating_max": row["hi_r"],
+        "with_lichess_analysis": row["analysed"] or 0,
+    }
+
+
 def get_moves(conn: sqlite3.Connection, game_id: str) -> list[sqlite3.Row]:
     return conn.execute(
         "SELECT * FROM moves WHERE game_id = ? ORDER BY ply", (game_id,)
