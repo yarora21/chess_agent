@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chess-agent"
+version = "0.1.0"
+description = "Longitudinal analysis of Lichess rapid play: where did my chess actually improve?"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "berserk>=0.13",
+    "chess>=1.10",
+    "requests>=2.31",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+chess-agent = "chess_agent.cli:main"
+
+[tool.setuptools]
+packages = ["chess_agent"]
+
+[tool.setuptools.package-data]
+chess_agent = ["schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,19 @@
+# The store and anything derived from it — rebuildable from the API.
+data/*.sqlite
+data/*.sqlite-wal
+data/*.sqlite-shm
+
+# Engine weights are large binaries, not source.
+weights/
+
+# Never commit the API token.
+.env
+
+# Working notes and design docs — kept local.
+docs/
+CLAUDE.md
+CLAUDE_REVIEW.md
+
+__pycache__/
+*.egg-info/
+.pytest_cache/
